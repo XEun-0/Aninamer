@@ -38,8 +38,6 @@ namespace Aninamer
             this.executeButton = new System.Windows.Forms.Button();
             this.label1 = new System.Windows.Forms.Label();
             this.panel1 = new System.Windows.Forms.Panel();
-            this.targetFilesList = new Aninamer.components.SyncedListBox();
-            this.extIdList = new Aninamer.components.SyncedListBox();
             this.anidbParentUrl = new System.Windows.Forms.TextBox();
             this.anidbParentUrlLabel = new System.Windows.Forms.Label();
             this.targetTitleTextBox = new System.Windows.Forms.TextBox();
@@ -50,6 +48,8 @@ namespace Aninamer
             this.changeAllButton = new System.Windows.Forms.Button();
             this.cancelButton = new System.Windows.Forms.Button();
             this.genericErrProvider = new System.Windows.Forms.ErrorProvider(this.components);
+            this.targetFilesList = new Aninamer.components.SyncedListBox();
+            this.extIdList = new Aninamer.components.SyncedListBox();
             this.panel1.SuspendLayout();
             this.panel2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.genericErrProvider)).BeginInit();
@@ -88,39 +88,6 @@ namespace Aninamer
             this.panel1.Name = "panel1";
             this.panel1.Size = new System.Drawing.Size(771, 386);
             this.panel1.TabIndex = 2;
-            // 
-            // targetFilesList
-            // 
-            this.targetFilesList.AllowDrop = true;
-            this.targetFilesList.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)));
-            this.targetFilesList.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
-            this.targetFilesList.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.targetFilesList.FormattingEnabled = true;
-            this.targetFilesList.ItemHeight = 16;
-            this.targetFilesList.Location = new System.Drawing.Point(404, 0);
-            this.targetFilesList.Name = "targetFilesList";
-            this.targetFilesList.Partner = null;
-            this.targetFilesList.Size = new System.Drawing.Size(364, 372);
-            this.targetFilesList.TabIndex = 1;
-            this.targetFilesList.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.TargetFilesList_DrawItem);
-            this.targetFilesList.SelectedIndexChanged += new System.EventHandler(this.ListBox_SelectedIndexChanged);
-            this.targetFilesList.DragDrop += new System.Windows.Forms.DragEventHandler(this.TargetFilesList_DragDrop);
-            this.targetFilesList.DragEnter += new System.Windows.Forms.DragEventHandler(this.TargetFilesList_DragEnter);
-            this.targetFilesList.DragOver += new System.Windows.Forms.DragEventHandler(this.TargetFilesList_DragOver);
-            this.targetFilesList.MouseDown += new System.Windows.Forms.MouseEventHandler(this.TargetFilesList_MouseDown);
-            // 
-            // extIdList
-            // 
-            this.extIdList.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)));
-            this.extIdList.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.extIdList.FormattingEnabled = true;
-            this.extIdList.ItemHeight = 16;
-            this.extIdList.Location = new System.Drawing.Point(0, 0);
-            this.extIdList.Name = "extIdList";
-            this.extIdList.Partner = null;
-            this.extIdList.Size = new System.Drawing.Size(374, 372);
-            this.extIdList.TabIndex = 0;
-            this.extIdList.SelectedIndexChanged += new System.EventHandler(this.ListBox_SelectedIndexChanged);
             // 
             // anidbParentUrl
             // 
@@ -208,6 +175,43 @@ namespace Aninamer
             // 
             this.genericErrProvider.ContainerControl = this;
             // 
+            // targetFilesList
+            // 
+            this.targetFilesList.AllowDrop = true;
+            this.targetFilesList.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)));
+            this.targetFilesList.DrawMode = System.Windows.Forms.DrawMode.OwnerDrawFixed;
+            this.targetFilesList.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.targetFilesList.FormattingEnabled = true;
+            this.targetFilesList.HorizontalExtent = 2000;
+            this.targetFilesList.HorizontalScrollbar = true;
+            this.targetFilesList.ItemHeight = 16;
+            this.targetFilesList.Location = new System.Drawing.Point(404, 0);
+            this.targetFilesList.Name = "targetFilesList";
+            this.targetFilesList.Partner = null;
+            this.targetFilesList.Size = new System.Drawing.Size(364, 372);
+            this.targetFilesList.TabIndex = 1;
+            this.targetFilesList.DrawItem += new System.Windows.Forms.DrawItemEventHandler(this.TargetFilesList_DrawItem);
+            this.targetFilesList.SelectedIndexChanged += new System.EventHandler(this.ListBox_SelectedIndexChanged);
+            this.targetFilesList.DragDrop += new System.Windows.Forms.DragEventHandler(this.TargetFilesList_DragDrop);
+            this.targetFilesList.DragEnter += new System.Windows.Forms.DragEventHandler(this.TargetFilesList_DragEnter);
+            this.targetFilesList.DragOver += new System.Windows.Forms.DragEventHandler(this.TargetFilesList_DragOver);
+            this.targetFilesList.MouseDown += new System.Windows.Forms.MouseEventHandler(this.TargetFilesList_MouseDown);
+            // 
+            // extIdList
+            // 
+            this.extIdList.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)));
+            this.extIdList.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.extIdList.FormattingEnabled = true;
+            this.extIdList.HorizontalExtent = 2000;
+            this.extIdList.HorizontalScrollbar = true;
+            this.extIdList.ItemHeight = 16;
+            this.extIdList.Location = new System.Drawing.Point(0, 0);
+            this.extIdList.Name = "extIdList";
+            this.extIdList.Partner = null;
+            this.extIdList.Size = new System.Drawing.Size(374, 372);
+            this.extIdList.TabIndex = 0;
+            this.extIdList.SelectedIndexChanged += new System.EventHandler(this.ListBox_SelectedIndexChanged);
+            // 
             // MainWindow
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -221,7 +225,7 @@ namespace Aninamer
             this.Controls.Add(this.label1);
             this.Controls.Add(this.executeButton);
             this.Name = "MainWindow";
-            this.Text = "Form1";
+            this.Text = "MainForm";
             this.panel1.ResumeLayout(false);
             this.panel2.ResumeLayout(false);
             this.panel2.PerformLayout();

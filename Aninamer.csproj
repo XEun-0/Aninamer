@@ -119,6 +119,7 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="util\BrowserManager.cs" />
+    <Compile Include="util\DirectoryHelper.cs" />
     <Compile Include="util\FileHelper.cs" />
     <Compile Include="MainWindow.cs">
       <SubType>Form</SubType>
