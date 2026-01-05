@@ -25,10 +25,11 @@ namespace Aninamer
         private int dragOverIndex = -1;
         private object targetSave = null;
         private string currOpenDir = null;
+        private string animeTitle = null;
         string[] allowed = { ".mkv", ".mp4", ".avi", ".mov" };
 
-        private List<string> _mediaFiles = new List<string>();
-        private List<AnimeFile> _animeFiles = new List<AnimeFile>();
+        private List<string>    _mediaFiles        = new List<string>();
+        private List<AnimeFile> _animeFiles     = new List<AnimeFile>();
 
         /**
          * MainWindow
@@ -100,11 +101,16 @@ namespace Aninamer
                 try
                 {
                     driver.Navigate().GoToUrl(anidbParentUrlString);
+
                     var episodeLinks = driver.FindElements(By.CssSelector("td.id.eid a[href^='/episode/']"));
-                    var animeTitle = driver.FindElement(By.CssSelector("td.value span[itemprop='name']")).Text;
+
+                    animeTitle = FileHelper.SanitizeFileName(
+                                                    driver.FindElement(By.CssSelector("td.value span[itemprop='name']")).Text + 
+                                                    " [anidbid-" + 
+                                                    anidbParentUrlString.Split('/').Last() + "]"
+                                                );
 
                     Console.WriteLine("ANIME TITLE: " + animeTitle);
-                    Console.WriteLine("SANITEZED: " + FileHelper.SanitizeFileName(animeTitle));
 
                     foreach (var link in episodeLinks)
                     {
@@ -130,7 +136,7 @@ namespace Aninamer
                             episodeNumberStr = "E" + episodeNumber.ToString();
                         }
 
-                            extIdList.Items.Add(episodeNumberStr + " [anidbid-" + episodeId + "]");
+                        extIdList.Items.Add(episodeNumberStr + " [anidbid-" + episodeId + "]");
                         //targetFilesList.Items.Add("E" + episodeNumber + " [anidbid-" + episodeId + "]");
                     }
                 }
@@ -153,6 +159,8 @@ namespace Aninamer
             cancelButton.Enabled    = true;
             anidbParentUrl.Enabled  = false;
             changeAllButton.Enabled = true;
+
+            
         }
 
         #region targetFilesList event handlers
@@ -299,7 +307,7 @@ namespace Aninamer
 
         private void OpenFileDialog1_FileOk(object sender, CancelEventArgs e)
         {
-
+            // None, may delete
         }
 
         private void ChangeAllButton_Click(object sender, EventArgs e)
@@ -313,6 +321,13 @@ namespace Aninamer
                 genericErrProvider.SetError(targetTitleLabel, "Please enter the anime title");
                 checkGood = false;
             }
+            
+            // Directory Package Creation
+            // Make Anime Name + anidbid for the title
+            string madeDir = DirectoryHelper.CreatePackageDirectory(currOpenDir, animeTitle);
+
+            // Make the Season 01 folder nested inside the Anime main title folder
+            string madeNestedDir = DirectoryHelper.CreatePackageDirectory(madeDir, "Season 01");
 
             // Remove future
             //if (string.IsNullOrWhiteSpace(prefixTitleTextBox.Text))
@@ -346,14 +361,22 @@ namespace Aninamer
                     {
                         int extIdListIdx = _animeFiles[aFileCounter].CurrIdx;
                         tempAnimFile = _animeFiles[aFileCounter];
-                        
+
                         // The hardcoded S01 is if you like splitting seasons into it's own
                         // media and not under the same base anime
-                        tempAnimFile.TargetFilePath = _animeFiles[aFileCounter].FileDir + "\\"
-                                                                        + targetTitleTextBox.Text
-                                                                        + " - S01"
-                                                                        + extIdList.Items[extIdListIdx]
-                                                                        + _animeFiles[aFileCounter].FileExt;
+                        tempAnimFile.TargetFilePath = Path.Combine( 
+                                                                    madeNestedDir,
+                                                                    FileHelper.SanitizeFileName(targetTitleTextBox.Text)
+                                                                    + " - S01"
+                                                                    + extIdList.Items[extIdListIdx]
+                                                                    + _animeFiles[aFileCounter].FileExt
+                                                                  );
+
+                        //tempAnimFile.TargetFilePath = _animeFiles[aFileCounter].FileDir + "\\"
+                        //                                                + targetTitleTextBox.Text
+                        //                                                + " - S01"
+                        //                                                + extIdList.Items[extIdListIdx]
+                        //                                                + _animeFiles[aFileCounter].FileExt;
 
                         // Keep for debugging
                         //Console.WriteLine(tempAnimFile.TargetFilePath);
@@ -369,13 +392,18 @@ namespace Aninamer
 
         private void cancelButton_Click(object sender, EventArgs e)
         {
+            // Reenable all the buttons
             executeButton.Enabled   = true;
             anidbParentUrl.Enabled  = true;
             cancelButton.Enabled    = false;
             changeAllButton.Enabled = false;
 
+            // Clear ListBoxes
             targetFilesList.Items.Clear();
             extIdList.Items.Clear();
+
+            // Clear AnimeFiles struct list
+            _animeFiles.Clear();
         }
     }
 }

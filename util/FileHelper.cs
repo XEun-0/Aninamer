@@ -47,9 +47,10 @@ namespace Aninamer.util
             StartingIdx = startingIdx;
 
             // Initialize mutable fields too (required)
-            CurrentFileRef  = filePath;
-            CurrIdx         = startingIdx;
-            TargetFilePath  = filePath;
+            // Mutable fields need to be changed
+            CurrentFileRef  = "";
+            CurrIdx         = -1;
+            TargetFilePath  = "";
         }
 
         // Override ToString for readonly fields only
