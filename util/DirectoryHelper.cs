@@ -11,9 +11,9 @@ namespace Aninamer.util
     {
         public static string CreatePackageDirectory(string workingDir, string resDirName)
         {
-            string madeDir = string.Join("//", workingDir, resDirName);
+            string madeDir = Path.Combine(workingDir, resDirName);
 
-            CreateDirectory(madeDir);
+            //string madeDir = string.Join("//", workingDir, resDirName);
 
             return madeDir;
         }
