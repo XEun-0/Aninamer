@@ -15,6 +15,8 @@ namespace Aninamer.util
 
             //string madeDir = string.Join("//", workingDir, resDirName);
 
+            CreateDirectory(madeDir);
+
             return madeDir;
         }
 
