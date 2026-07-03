@@ -1,11 +1,9 @@
-﻿using AngleSharp.Attributes;
-using AngleSharp.Text;
+﻿using AngleSharp.Text;
+using Aninamer.components;
 using Aninamer.util;
-using HtmlAgilityPack;
 using Microsoft.WindowsAPICodePack.Dialogs;
-using OpenQA.Selenium;
-using OpenQA.Selenium.BiDi.Script;
-using OpenQA.Selenium.Chrome;
+using Newtonsoft.Json;
+using OpenQA.Selenium.BiDi.Input;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -13,163 +11,245 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Text.RegularExpressions;
 using System.Windows.Forms;
-using WebDriverManager;
-using WebDriverManager.DriverConfigs.Impl;
 
 namespace Aninamer
 {
     public partial class MainWindow : Form
-    {        
+    {
         private int dragOverIndex = -1;
         private object targetSave = null;
         private string currOpenDir = null;
         private string animeTitle = null;
+        private string animeTitleNoAID = null;
         string[] allowed = { ".mkv", ".mp4", ".avi", ".mov" };
 
-        private List<string>    _mediaFiles        = new List<string>();
-        private List<AnimeFile> _animeFiles     = new List<AnimeFile>();
+        private List<string> _mediaFiles = new List<string>();
+        private List<EpisodeFile> _animeFiles = new List<EpisodeFile>();
 
-        /**
-         * MainWindow
-         * 
-         * MainWindow constructor function
-         */
+        private string anidbTitle = "";
+        private string anidbAnimeID = "";
+
+        private static HttpClient sharedClient = new HttpClient()
+        {
+            BaseAddress = new Uri("http://localhost:5206"),
+        };
+
+        /// <summary>
+        /// 
+        /// </summary>
         public MainWindow()
         {
             InitializeComponent();
             InitializeExtras();
 
+            APIResponseManager.Initialize(statusCodeRTextBox);
+
             // Sync scrolling both ways
             targetFilesList.Partner = extIdList;
             extIdList.Partner = targetFilesList;
+
+            //Console.WriteLine("Extracting Episode Number: " + FileHelper.ExtractEpisodeNumber("", 12));
         }
 
-        /**
-         * TargetFilesList_MouseDown
-         * 
-         * Event handler for MouseDown event for TargetFilesList
-         */
-        private void ExecuteButton_Click(object sender, EventArgs e)
+        private string ResolveSafeAnimeFolderName(
+            string longTitle,
+            string shortTitle,
+            int episodeCount,
+            string basePath)
         {
-            var dialog = new CommonOpenFileDialog
+            const int SAFETY_MARGIN = 50; // buffer for separators + extensions
+            const int MAX_PATH_ESTIMATE = 240; // safe cross-platform-ish limit
+
+            // Estimate worst-case episode filename addition
+            int episodeBuffer = 15;
+            // e.g. "E01 [anidbid-12345].mkv"
+
+            string testPath = Path.Combine(basePath, longTitle);
+
+            int estimatedLength = testPath.Length + episodeBuffer + SAFETY_MARGIN;
+
+            if (estimatedLength > MAX_PATH_ESTIMATE)
             {
-                IsFolderPicker = true
-            };
-
-            if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
-            {
-                // Clear existing items in the listBox
-                targetFilesList.Items.Clear();
-
-                // Get all files in the selected directory
-                currOpenDir = dialog.FileName;
-                _mediaFiles = Directory
-                    .EnumerateFiles(currOpenDir)
-                    .Where(f => allowed.Contains(Path.GetExtension(f).ToLower()))
-                    .ToList();
-
-                // Extract only file names and add to targetFilesList
-                int fileCounter = 0;
-
-                foreach (var file in _mediaFiles)
-                {
-                    targetFilesList.Items.Add(Path.GetFileNameWithoutExtension(file));
-
-                    // Create an anime file for each episode
-                    var tempAFile = FileHelper.CreateAnimeFile(
-                                            file.ToString(), 
-                                            Path.GetDirectoryName(file), 
-                                            Path.GetExtension(file),
-                                            fileCounter
-                                        );
-
-                    tempAFile.CurrIdx = fileCounter;
-                    tempAFile.CurrentFileRef = Path.GetFileNameWithoutExtension(file);
-                    _animeFiles.Add(tempAFile);
-
-                    fileCounter++;
-                }
+                Console.WriteLine("[PathCheck] Too long -> using short title fallback");
+                return shortTitle;
             }
 
-            var driver = BrowserManager.Instance.Driver;
-            string anidbParentUrlString = anidbParentUrl.Text;
+            return longTitle;
+        }
 
-            if (!string.IsNullOrEmpty(anidbParentUrlString))
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private async void ExecuteButton_Click(object sender, EventArgs e)
+        {
+            if (string.IsNullOrEmpty(aidToSearchTextBox.Text))
             {
-                try
+                genericErrProvider.SetError(aidToSearchTextBox, "Please enter an AnidbID.");
+                return;
+            }
+            else
+            {
+                genericErrProvider.Clear();
+            }
+
+            HttpResponseMessage response = await sharedClient.GetAsync("/api/anidb/alive");
+
+            //statusCodeRTextBox.SelectionColor = Color.Red;
+
+
+            Console.WriteLine(response.StatusCode);
+            //statusCodeRTextBox.AppendText($"HTTP {(int)response.StatusCode}\n");
+
+            APIResponseManager.SetStatusMsg(response);
+
+
+
+
+            string content = await response.Content.ReadAsStringAsync();
+
+            var aliveResponse = JsonConvert.DeserializeObject<ServerAliveResponse>(content);
+
+            Console.WriteLine(content);
+
+            Console.WriteLine(aliveResponse.Success);
+
+            //==========================================================
+
+            if (aliveResponse.Success)
+            {
+                HttpResponseMessage loginResponse = await sharedClient.GetAsync("/api/anidb/login/execute");
+
+                content = await loginResponse.Content.ReadAsStringAsync();
+                Console.WriteLine(content);
+
+                HttpResponseMessage loadAnimeResponse = await sharedClient.GetAsync("/api/anidb/aid/" + aidToSearchTextBox.Text);
+
+                content = await loadAnimeResponse.Content.ReadAsStringAsync();
+                Console.WriteLine(content);
+
+                var dialog = new CommonOpenFileDialog
                 {
-                    driver.Navigate().GoToUrl(anidbParentUrlString);
+                    IsFolderPicker = true
+                };
 
-                    var episodeLinks = driver.FindElements(By.CssSelector("td.id.eid a[href^='/episode/']"));
+                if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
+                {
+                    // Clear existing items in the listBox
+                    targetFilesList.Items.Clear();
 
-                    animeTitle = FileHelper.SanitizeFileName(
-                                                    driver.FindElement(By.CssSelector("td.value span[itemprop='name']")).Text + 
-                                                    " [anidbid-" + 
-                                                    anidbParentUrlString.Split('/').Last() + "]"
-                                                );
+                    // Get all files in the selected directory
+                    currOpenDir = dialog.FileName;
+                    _mediaFiles = Directory
+                        .EnumerateFiles(currOpenDir)
+                        .Where(f => allowed.Contains(Path.GetExtension(f).ToLower()))
+                        .ToList();
 
-                    Console.WriteLine("ANIME TITLE: " + animeTitle);
+                    // Extract only file names and add to targetFilesList
+                    int fileCounter = 0;
 
-                    foreach (var link in episodeLinks)
+                    foreach (var file in _mediaFiles)
                     {
-                        var href = link.GetAttribute("href");
-                        var epNumElement = link.FindElement(By.CssSelector("td.id.eid abbr[itemprop='episodeNumber']"));
+                        targetFilesList.Items.Add(Path.GetFileNameWithoutExtension(file));
 
-                        var episodeNumber = epNumElement.Text.Trim();
-                        string episodeNumberStr;
+                        // Create an anime file for each episode
+                        var tempAFile = FileHelper.CreateAnimeFile(
+                                                file.ToString(),
+                                                Path.GetDirectoryName(file),
+                                                Path.GetExtension(file),
+                                                fileCounter
+                                            );
 
-                        // Episode ID is not to be confused with Anime ID.
-                        var episodeId = href.Split('/').Last();
+                        tempAFile.CurrIdx = fileCounter;
+                        tempAFile.CurrentFileRef = Path.GetFileNameWithoutExtension(file);
+                        _animeFiles.Add(tempAFile);
 
-                        if (episodeNumber.ToInteger(0) == 0)
-                        {
-                            episodeNumberStr = episodeNumber;
-                        }
-                        else if (episodeNumber.ToInteger(0) < 10)
-                        {
-                            episodeNumberStr = "E0" + episodeNumber.ToString();
-                        } 
-                        else
-                        {
-                            episodeNumberStr = "E" + episodeNumber.ToString();
-                        }
-
-                        extIdList.Items.Add(episodeNumberStr + " [anidbid-" + episodeId + "]");
-                        //targetFilesList.Items.Add("E" + episodeNumber + " [anidbid-" + episodeId + "]");
+                        fileCounter++;
                     }
                 }
-                catch (Exception ex)
+                string jsonInput = Prompt.ShowDialog("Paste JSON content here:", "Import Data");
+
+                if (!string.IsNullOrEmpty(jsonInput))
                 {
-                    MessageBox.Show("Error scraping AniDB page: " + ex.Message);
+                    try
+                    {
+                        // Deserialize
+                        var data = JsonConvert.DeserializeObject<AniDbResponse>(jsonInput);
+
+                        //targetFilesList.Items.Clear();
+                        //_animeFiles.Clear();
+
+                        var animeName = "";
+                        var startAirDate = "";
+
+                        animeName = data.Data.Anime.AnimeName + " ";
+                        startAirDate = "(" + data.Data.Anime.AirDateYear + ")";
+
+                        anidbAnimeID = " [anidbid-" + data.Data.Anime.Aid + "]";
+
+                        animeName = FileHelper.SanitizeFileName(animeName, startAirDate);
+
+                        string shortTitle = data.Data.Anime.AnimeNameShort;
+
+                        animeTitleNoAID = ResolveSafeAnimeFolderName(
+                            animeName.Trim() + " " + startAirDate,
+                            shortTitle,
+                            data.Data.Episodes.Count,
+                            currOpenDir
+                        );
+
+                        animeTitle = FileHelper.SanitizeFileName(
+                                                                    animeTitleNoAID +
+                                                                    anidbAnimeID
+                                                                );
+
+                        Console.WriteLine("SANITIZED ANIME TITLE: "  + animeTitle);
+                        Console.WriteLine("SANITIZED ANIME TITLE2: " + animeTitleNoAID);
+
+                        foreach (EpisodeEntry episodes in data.Data.Episodes)
+                        {
+                            var episodeNumber = episodes.EpisodeNumber;
+                            string episodeNumberStr;
+
+                            // Episode ID is not to be confused with Anime ID.
+                            var episodeId = episodes.Eid;
+
+                            episodeNumberStr = "E" + episodeNumber.ToString();
+
+                            extIdList.Items.Add(episodeNumberStr + " [anidbid-" + episodeId + "]");
+                        }
+
+                        Console.WriteLine("DIFFERENCE: " + (extIdList.Items.Count - targetFilesList.Items.Count));
+
+                        // Save targetFilesList original item count
+                        int snapshotFilesCount = targetFilesList.Items.Count;
+                        for (int i = 0; i < (extIdList.Items.Count - snapshotFilesCount); i++)
+                        {
+                            targetFilesList.Items.Add(" --- " + i);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Invalid JSON format: " + ex.Message);
+                    }
                 }
+
+                executeButton.Enabled = false;
+                cancelButton.Enabled = true;
+                //anidbParentUrl.Enabled  = false;
+                changeAllButton.Enabled = true;
             }
-
-            Console.WriteLine("DIFFERENCE: " + (extIdList.Items.Count - targetFilesList.Items.Count));
-            
-            // Save targetFilesList original item count
-            int snapshotFilesCount = targetFilesList.Items.Count;
-            for(int i = 0; i < (extIdList.Items.Count - snapshotFilesCount); i++)
-            {
-                targetFilesList.Items.Add(" --- " + i);
-            }
-
-            executeButton.Enabled   = false;
-            cancelButton.Enabled    = true;
-            anidbParentUrl.Enabled  = false;
-            changeAllButton.Enabled = true;
-
-            
         }
-
+        
         #region targetFilesList event handlers
 
-        /**
-         * TargetFilesList_MouseDown
-         * 
-         * Event handler for MouseDown event for TargetFilesList
-         */
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void TargetFilesList_MouseDown(object sender, MouseEventArgs e)
         {
             if (targetFilesList.SelectedItem == null) return;
@@ -178,21 +258,21 @@ namespace Aninamer
             targetFilesList.DoDragDrop(targetFilesList.SelectedItem, DragDropEffects.Move);
         }
 
-        /**
-         * TargetFilesList_DragEnter
-         * 
-         * Event handler for DragEnter event for TargetFilesList
-         */
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void TargetFilesList_DragEnter(object sender, DragEventArgs e)
         {
             e.Effect = DragDropEffects.Move;
         }
 
-        /**
-         * TargetFilesList_DragOver
-         * 
-         * Event handler for DragOver event for TargetFilesList
-         */
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void TargetFilesList_DragOver(object sender, DragEventArgs e)
         {
             Point p = targetFilesList.PointToClient(new Point(e.X, e.Y));
@@ -200,11 +280,11 @@ namespace Aninamer
             targetFilesList.Invalidate();
         }
 
-        /**
-         * TargetFilesList_DragDrop
-         * 
-         * Event handler for DragDrop event for TargetFilesList
-         */
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void TargetFilesList_DragDrop(object sender, DragEventArgs e)
         {
             Point p = targetFilesList.PointToClient(new Point(e.X, e.Y));
@@ -220,11 +300,11 @@ namespace Aninamer
             targetFilesList.Invalidate();
         }
 
-        /**
-         * TargetFilesList_DrawItem
-         * 
-         * Event handler for DrawItem event for TargetFilesList
-         */
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void TargetFilesList_DrawItem(object sender, DrawItemEventArgs e)
         {
             if (e.Index < 0) return;
@@ -262,11 +342,11 @@ namespace Aninamer
             e.DrawFocusRectangle();
         }
 
-        /**
-         * ListBox_SelectedIndexChanged
-         * 
-         * Event handler for ListBox for SelectedIndexChanged
-         */
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void ListBox_SelectedIndexChanged(object sender, EventArgs e)
         {
             if (!(sender is ListBox senderCast))
@@ -279,10 +359,8 @@ namespace Aninamer
                 if (senderCast.SelectedIndex != -1)
                 {
                     Console.WriteLine(targetSave.ToString() + " index: " + senderCast.SelectedIndex);
-                    
-                    // Get files from curr open directory
-                    //Console.WriteLine(Directory.GetFiles(currOpenDir)[senderCast.SelectedIndex]);
 
+                    // Get files from curr open directory
                     if (extIdList.SelectedIndex != senderCast.SelectedIndex)
                     {
                         extIdList.SetSelected(senderCast.SelectedIndex, true);
@@ -295,46 +373,43 @@ namespace Aninamer
 
                 //if (targetFilesList.SelectedIndex != -1)
                 //{
-                    if (senderCast.SelectedIndex != targetFilesList.SelectedIndex)
-                    {
-                        targetFilesList.SetSelected(extIdList.SelectedIndex, true);
-                    }
+                if (senderCast.SelectedIndex != targetFilesList.SelectedIndex)
+                {
+                    targetFilesList.SetSelected(extIdList.SelectedIndex, true);
+                }
                 //}
-                    
+
             }
         }
         #endregion
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void OpenFileDialog1_FileOk(object sender, CancelEventArgs e)
         {
             // None, may delete
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void ChangeAllButton_Click(object sender, EventArgs e)
         {
             bool checkGood = true;
-            AnimeFile tempAnimFile;
+            EpisodeFile tempAnimFile;
 
-            // Show Tooltips if fields are empty
-            if (string.IsNullOrWhiteSpace(targetTitleTextBox.Text))
-            {
-                genericErrProvider.SetError(targetTitleLabel, "Please enter the anime title");
-                checkGood = false;
-            }
-            
+            Console.WriteLine("ANIME TITLE IS: " + animeTitle);
             // Directory Package Creation
             // Make Anime Name + anidbid for the title
             string madeDir = DirectoryHelper.CreatePackageDirectory(currOpenDir, animeTitle);
 
             // Make the Season 01 folder nested inside the Anime main title folder
             string madeNestedDir = DirectoryHelper.CreatePackageDirectory(madeDir, "Season 01");
-
-            // Remove future
-            //if (string.IsNullOrWhiteSpace(prefixTitleTextBox.Text))
-            //{
-            //    genericErrProvider.SetError(prefixTitleLabel, "Please enter anime name");
-            //    checkGood = false;
-            //}
 
             // Update the AnimeFiles
             if (Directory.Exists(currOpenDir) && checkGood)
@@ -364,38 +439,41 @@ namespace Aninamer
 
                         // The hardcoded S01 is if you like splitting seasons into it's own
                         // media and not under the same base anime
-                        tempAnimFile.TargetFilePath = Path.Combine( 
+                        tempAnimFile.TargetFilePath = Path.Combine(
                                                                     madeNestedDir,
-                                                                    FileHelper.SanitizeFileName(targetTitleTextBox.Text)
+                                                                    animeTitleNoAID
                                                                     + " - S01"
                                                                     + extIdList.Items[extIdListIdx]
                                                                     + _animeFiles[aFileCounter].FileExt
                                                                   );
 
-                        //tempAnimFile.TargetFilePath = _animeFiles[aFileCounter].FileDir + "\\"
-                        //                                                + targetTitleTextBox.Text
-                        //                                                + " - S01"
-                        //                                                + extIdList.Items[extIdListIdx]
-                        //                                                + _animeFiles[aFileCounter].FileExt;
-
-                        // Keep for debugging
-                        //Console.WriteLine(tempAnimFile.TargetFilePath);
-                        //Console.WriteLine(fNamesPath);
-
                         File.Move(fNamesPath, tempAnimFile.TargetFilePath);
-                        
+
                         aFileCounter++;
                     }
                 }
             }
         }
 
-        private void cancelButton_Click(object sender, EventArgs e)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private async void cancelButton_Click(object sender, EventArgs e)
         {
+            HttpResponseMessage response = await sharedClient.GetAsync("/api/anidb/aid/clear");
+            string content = await response.Content.ReadAsStringAsync();
+            var clearResponse = JsonConvert.DeserializeObject<ServerAliveResponse>(content);
+
+            Console.WriteLine(content);
+
+            Console.WriteLine(clearResponse.Success);
+
+
             // Reenable all the buttons
-            executeButton.Enabled   = true;
-            anidbParentUrl.Enabled  = true;
-            cancelButton.Enabled    = false;
+            executeButton.Enabled = true;
+            cancelButton.Enabled = false;
             changeAllButton.Enabled = false;
 
             // Clear ListBoxes
@@ -404,6 +482,86 @@ namespace Aninamer
 
             // Clear AnimeFiles struct list
             _animeFiles.Clear();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private async void LoginAgainButton_Click(object sender, EventArgs e)
+        {
+            string httpcmd = "/api/anidb/login/execute";
+
+            HttpResponseMessage response = await sharedClient.GetAsync(httpcmd);
+
+            APIResponseManager.SetStatusMsg(response);
+
+            string content = await response.Content.ReadAsStringAsync();
+
+            var aliveResponse = JsonConvert.DeserializeObject<ServerAliveResponse>(content);
+
+            Console.WriteLine(content);
+
+            Console.WriteLine(aliveResponse.Success);
+        }
+
+        private async void getAnimeDataButton_Click(object sender, EventArgs e)
+        {
+            int animeAID = 0;
+            
+            if (string.IsNullOrEmpty(aidToSearchTextBox.Text))
+            {
+                genericErrProvider.SetError(aidToSearchTextBox, "Please enter an AnidbID.");
+                return;
+            }
+            else
+            {
+                genericErrProvider.Clear();
+            }
+            animeAID = int.Parse(aidToSearchTextBox.Text);
+
+            HttpResponseMessage response = await sharedClient.GetAsync($"/api/anidb/aid/{animeAID}");
+
+            APIResponseManager.SetStatusMsg(response);
+
+            string content = await response.Content.ReadAsStringAsync();
+
+            var aliveResponse = JsonConvert.DeserializeObject<ServerAliveResponse>(content);
+
+            Console.WriteLine(content);
+
+            Console.WriteLine(aliveResponse.Success);
+        }
+
+        private async void getJobStatusButton_Click(object sender, EventArgs e)
+        {
+            HttpResponseMessage response = await sharedClient.GetAsync("/api/anidb/alive");
+
+            APIResponseManager.SetStatusMsg(response);
+
+            string content = await response.Content.ReadAsStringAsync();
+
+            var aliveResponse = JsonConvert.DeserializeObject<ServerAliveResponse>(content);
+
+            Console.WriteLine(content);
+
+            Console.WriteLine(aliveResponse.Success);
+        }
+
+        private async void clearAnimeButton_Click(object sender, EventArgs e)
+        {
+            HttpResponseMessage response = await sharedClient.GetAsync("api/anidb/aid/clear");
+
+            APIResponseManager.SetStatusMsg(response);
+
+            string content = await response.Content.ReadAsStringAsync();
+
+            var aliveResponse = JsonConvert.DeserializeObject<ServerAliveResponse>(content);
+
+            Console.WriteLine(content);
+
+            Console.WriteLine(aliveResponse.Success);
         }
     }
 }
