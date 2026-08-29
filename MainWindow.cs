@@ -4,6 +4,7 @@ using Aninamer.util;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using Newtonsoft.Json;
 using OpenQA.Selenium.BiDi.Input;
+using OpenQA.Selenium.Support.UI;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -27,7 +28,8 @@ namespace Aninamer
         private List<string> _mediaFiles = new List<string>();
         private List<EpisodeFile> _animeFiles = new List<EpisodeFile>();
 
-        private string anidbTitle = "";
+        // Not used. Remove later, save for now.
+        // private string anidbTitle = "";
         private string anidbAnimeID = "";
 
         private static HttpClient sharedClient = new HttpClient()
@@ -169,14 +171,37 @@ namespace Aninamer
                         fileCounter++;
                     }
                 }
-                string jsonInput = Prompt.ShowDialog("Paste JSON content here:", "Import Data");
+                //string jsonInput = Prompt.ShowDialog("Paste JSON content here:", "Import Data");
 
-                if (!string.IsNullOrEmpty(jsonInput))
+                //if (!string.IsNullOrEmpty(jsonInput))
+                const string statusURL = "/api/anidb/aid/episodes/status/0";
+                const string getAnimeURL = "/api/anidb/aid/episodes/get";
+
+                HttpResponseMessage getAnimeURLStatusResponse = await sharedClient.GetAsync(getAnimeURL);
+
+                Console.WriteLine(getAnimeURLStatusResponse.ToString());
+                await System.Threading.Tasks.Task.Delay(5000);
+
+                while (true)
                 {
-                    try
+                    HttpResponseMessage statusResponse = await sharedClient.GetAsync(statusURL);
+
+                    statusResponse.EnsureSuccessStatusCode();
+
+                    string json = await statusResponse.Content.ReadAsStringAsync();
+
+                    var statusResponseJSON =
+                        JsonConvert.DeserializeObject<AniDbResponse>(json);
+
+                    Console.WriteLine(statusResponseJSON?.Status);
+                    if (statusResponseJSON?.Status == "processing")
                     {
-                        // Deserialize
-                        var data = JsonConvert.DeserializeObject<AniDbResponse>(jsonInput);
+                        await System.Threading.Tasks.Task.Delay(6000);
+                        continue;
+                    }
+                    else if (statusResponseJSON?.Status == "done")
+                    {
+                        var data = JsonConvert.DeserializeObject<AniDbResponse>(json);
 
                         //targetFilesList.Items.Clear();
                         //_animeFiles.Clear();
@@ -205,7 +230,7 @@ namespace Aninamer
                                                                     anidbAnimeID
                                                                 );
 
-                        Console.WriteLine("SANITIZED ANIME TITLE: "  + animeTitle);
+                        Console.WriteLine("SANITIZED ANIME TITLE: " + animeTitle);
                         Console.WriteLine("SANITIZED ANIME TITLE2: " + animeTitleNoAID);
 
                         foreach (EpisodeEntry episodes in data.Data.Episodes)
@@ -229,17 +254,17 @@ namespace Aninamer
                         {
                             targetFilesList.Items.Add(" --- " + i);
                         }
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show("Invalid JSON format: " + ex.Message);
-                    }
-                }
 
-                executeButton.Enabled = false;
-                cancelButton.Enabled = true;
-                //anidbParentUrl.Enabled  = false;
-                changeAllButton.Enabled = true;
+
+                        executeButton.Enabled = false;
+                        cancelButton.Enabled = true;
+                        //anidbParentUrl.Enabled  = false;
+                        changeAllButton.Enabled = true;
+
+                        break;
+                    }
+
+                }
             }
         }
         
@@ -536,7 +561,7 @@ namespace Aninamer
 
         private async void getJobStatusButton_Click(object sender, EventArgs e)
         {
-            HttpResponseMessage response = await sharedClient.GetAsync("/api/anidb/alive");
+             HttpResponseMessage response = await sharedClient.GetAsync("/api/anidb/alive");
 
             APIResponseManager.SetStatusMsg(response);
 
