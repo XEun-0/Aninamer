@@ -61,7 +61,7 @@ namespace Aninamer
             string basePath)
         {
             const int SAFETY_MARGIN = 50; // buffer for separators + extensions
-            const int MAX_PATH_ESTIMATE = 240; // safe cross-platform-ish limit
+            const int MAX_PATH_ESTIMATE = 200; // safe cross-platform-ish limit
 
             // Estimate worst-case episode filename addition
             int episodeBuffer = 15;
@@ -215,8 +215,16 @@ namespace Aninamer
                         anidbAnimeID = " [anidbid-" + data.Data.Anime.Aid + "]";
 
                         animeName = FileHelper.SanitizeFileName(animeName, startAirDate);
-
-                        string shortTitle = data.Data.Anime.AnimeNameShort;
+                        
+                        // Delete this later
+                        if (!string.IsNullOrWhiteSpace(altTitleTextBox.Text))
+                        {
+                            animeName = altTitleTextBox.Text;
+                        }
+                        // Delete the lambda portion later
+                        string shortTitle = string.IsNullOrWhiteSpace(data.Data.Anime.AnimeNameShort)
+                                            ? altTitleTextBox.Text
+                                            : data.Data.Anime.AnimeNameShort;
 
                         animeTitleNoAID = ResolveSafeAnimeFolderName(
                             animeName.Trim() + " " + startAirDate,
@@ -472,7 +480,21 @@ namespace Aninamer
                                                                     + _animeFiles[aFileCounter].FileExt
                                                                   );
 
-                        File.Move(fNamesPath, tempAnimFile.TargetFilePath);
+                        try
+                        {
+                            File.Move(fNamesPath, tempAnimFile.TargetFilePath);
+                        }
+                        catch
+                        {
+                            string altTitle = PromptForAltTitle();
+                            Console.WriteLine("EXCEPTION HERE");
+                            if (!string.IsNullOrEmpty(altTitle))
+                            {
+                                // Do something here
+                                Console.WriteLine("EXCEPTION HERE");
+                            }
+                        }
+                        
 
                         aFileCounter++;
                     }
@@ -531,6 +553,11 @@ namespace Aninamer
             Console.WriteLine(aliveResponse.Success);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private async void getAnimeDataButton_Click(object sender, EventArgs e)
         {
             int animeAID = 0;
@@ -559,6 +586,11 @@ namespace Aninamer
             Console.WriteLine(aliveResponse.Success);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private async void getJobStatusButton_Click(object sender, EventArgs e)
         {
              HttpResponseMessage response = await sharedClient.GetAsync("/api/anidb/alive");
@@ -574,6 +606,11 @@ namespace Aninamer
             Console.WriteLine(aliveResponse.Success);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private async void clearAnimeButton_Click(object sender, EventArgs e)
         {
             HttpResponseMessage response = await sharedClient.GetAsync("api/anidb/aid/clear");
@@ -587,6 +624,80 @@ namespace Aninamer
             Console.WriteLine(content);
 
             Console.WriteLine(aliveResponse.Success);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void MainWindow_Load(object sender, EventArgs e)
+        {
+            // None
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        private string PromptForAltTitle()
+        {
+            Form dialog = new Form
+            {
+                Text = "Alternate Title",
+                Width = 400,
+                Height = 150,
+                StartPosition = FormStartPosition.CenterParent
+            };
+
+            TextBox textBox = new TextBox
+            {
+                Left = 10,
+                Top = 35,
+                Width = 350
+            };
+
+            Label label = new Label
+            {
+                Text = "Enter an alternate title:",
+                Left = 10,
+                Top = 10,
+                Width = 350
+            };
+
+            Button okButton = new Button
+            {
+                Text = "OK",
+                Left = 200,
+                Top = 70,
+                Width = 75,
+                DialogResult = DialogResult.OK
+            };
+
+            Button cancelButton = new Button
+            {
+                Text = "Cancel",
+                Left = 285,
+                Top = 70,
+                Width = 75,
+                DialogResult = DialogResult.Cancel
+            };
+
+            dialog.Controls.AddRange(new Control[]
+            {
+                label,
+                textBox,
+                okButton,
+                cancelButton
+            });
+
+            dialog.AcceptButton = okButton;
+            dialog.CancelButton = cancelButton;
+
+            return dialog.ShowDialog() == DialogResult.OK &&
+                   !string.IsNullOrWhiteSpace(textBox.Text)
+                ? textBox.Text.Trim()
+                : null;
         }
     }
 }
