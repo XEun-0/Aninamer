@@ -1,32 +1,31 @@
-﻿using OpenQA.Selenium.Chrome;
-using System;
+﻿//using System;
 
-namespace Aninamer.util
-{
-    public sealed class BrowserManager : IDisposable
-    {
-        private static readonly Lazy<BrowserManager> _instance =
-            new Lazy<BrowserManager>(() => new BrowserManager());
+//namespace Aninamer.util
+//{
+//    public sealed class BrowserManager : IDisposable
+//    {
+//        private static readonly Lazy<BrowserManager> _instance =
+//            new Lazy<BrowserManager>(() => new BrowserManager());
 
-        public static BrowserManager Instance => _instance.Value;
+//        public static BrowserManager Instance => _instance.Value;
 
-        public ChromeDriver Driver { get; private set; }
+//        public ChromeDriver Driver { get; private set; }
 
-        private BrowserManager()
-        {
-            var service = ChromeDriverService.CreateDefaultService();
-            service.HideCommandPromptWindow = true;
+//        private BrowserManager()
+//        {
+//            var service = ChromeDriverService.CreateDefaultService();
+//            service.HideCommandPromptWindow = true;
 
-            var options = new ChromeOptions();
-            options.AddArgument("--headless");
+//            var options = new ChromeOptions();
+//            options.AddArgument("--headless");
 
-            Driver = new ChromeDriver(service, options);
-        }
+//            Driver = new ChromeDriver(service, options);
+//        }
 
-        public void Dispose()
-        {
-            Driver?.Quit();
-            Driver?.Dispose();
-        }
-    }
-}
+//        public void Dispose()
+//        {
+//            Driver?.Quit();
+//            Driver?.Dispose();
+//        }
+//    }
+//}

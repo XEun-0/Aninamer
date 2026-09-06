@@ -1,10 +1,7 @@
 ﻿using AngleSharp.Text;
-using Aninamer.components;
 using Aninamer.util;
 using Microsoft.WindowsAPICodePack.Dialogs;
 using Newtonsoft.Json;
-using OpenQA.Selenium.BiDi.Input;
-using OpenQA.Selenium.Support.UI;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
