@@ -467,6 +467,13 @@ namespace Aninamer
                         int extIdListIdx = _animeFiles[aFileCounter].CurrIdx;
                         tempAnimFile = _animeFiles[aFileCounter];
 
+                        // if the actual retrieved list count is greater than the existing media files,
+                        // to not include in the list conversion list.
+                        if (extIdList.Items.Count == aFileCounter)
+                        {
+                            break;
+                        }
+
                         // The hardcoded S01 is if you like splitting seasons into it's own
                         // media and not under the same base anime
                         tempAnimFile.TargetFilePath = Path.Combine(
@@ -491,7 +498,6 @@ namespace Aninamer
                                 Console.WriteLine("EXCEPTION HERE");
                             }
                         }
-                        
 
                         aFileCounter++;
                     }
